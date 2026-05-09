@@ -37,6 +37,7 @@ namespace aero {
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 gpr get_entrypoint_address();
+void aero_register_overlays();
 
 // ---------------------------------------------------------------------------
 // Logging
@@ -419,6 +420,10 @@ int main(int argc, char** argv) {
     ultramodern::renderer::callbacks_t renderer_callbacks{
         .create_render_context = aero::create_render_context,
     };
+
+    log("[BOOT] Registering overlays (section table)...");
+    aero_register_overlays();
+    log("[BOOT] Overlays registered OK");
 
     log("[BOOT] Calling recomp::start()...");
     recomp::start(

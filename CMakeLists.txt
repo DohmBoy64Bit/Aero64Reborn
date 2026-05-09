@@ -79,6 +79,7 @@ target_sources(PatchesLib PRIVATE ${RUNTIME_DIR}/dummy_patches.c)
 add_executable(Aero64Recompiled
     ${RUNTIME_DIR}/main.cpp
     ${RUNTIME_DIR}/aero_render.cpp
+    ${RUNTIME_DIR}/register_overlays.cpp
 )
 
 target_include_directories(Aero64Recompiled PRIVATE
