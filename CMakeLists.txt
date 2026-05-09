@@ -92,6 +92,7 @@ target_include_directories(Aero64Recompiled PRIVATE
     ${ENGINE_DIR}/lib/rt64/src
     ${ENGINE_DIR}/lib/rt64/src/contrib/hlslpp/include
     ${ENGINE_DIR}/lib/rt64/src/contrib
+    ${ENGINE_DIR}/lib/N64ModernRuntime/thirdparty/xxHash
     ${RECOMP_DIR}
 )
 

@@ -1,15 +1,23 @@
-#include <cstdio>
 #include <cassert>
 #include <vector>
 #include <array>
 #include <string>
 #include <stdexcept>
+#include <filesystem>
+#include <fstream>
+#include <thread>
+#include <cstdio>
+#include <ctime>
 
 #include "ultramodern/ultra64.h"
 #include "ultramodern/ultramodern.hpp"
 #include "ultramodern/renderer_context.hpp"
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
+
+#define XXH_STATIC_LINKING_ONLY
+#define XXH_IMPLEMENTATION
+#include "xxhash.h"
 
 namespace aero {
     std::unique_ptr<ultramodern::renderer::RendererContext>
@@ -31,15 +39,75 @@ extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 gpr get_entrypoint_address();
 
 // ---------------------------------------------------------------------------
+// Logging
+// ---------------------------------------------------------------------------
+
+static FILE* g_log_file = nullptr;
+
+static void log_init(const std::filesystem::path& log_path) {
+#ifdef _WIN32
+    AllocConsole();
+    freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
+    freopen_s((FILE**)stderr, "CONOUT$", "w", stderr);
+    SetConsoleTitleA("Aero Fighters Assault: Recompiled — Debug");
+#endif
+    g_log_file = fopen(log_path.string().c_str(), "w");
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+}
+
+static void log(const char* fmt, ...) {
+    char buf[2048];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    time_t now = time(nullptr);
+    struct tm t;
+#ifdef _WIN32
+    localtime_s(&t, &now);
+#else
+    localtime_r(&now, &t);
+#endif
+    fprintf(stdout, "[%02d:%02d:%02d] %s\n", t.tm_hour, t.tm_min, t.tm_sec, buf);
+    if (g_log_file) {
+        fprintf(g_log_file, "[%02d:%02d:%02d] %s\n", t.tm_hour, t.tm_min, t.tm_sec, buf);
+        fflush(g_log_file);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ROM utilities
+// ---------------------------------------------------------------------------
+
+static std::vector<uint8_t> read_file_bytes(const std::filesystem::path& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return {};
+    f.seekg(0, std::ios::end);
+    std::vector<uint8_t> data(f.tellg());
+    f.seekg(0, std::ios::beg);
+    f.read(reinterpret_cast<char*>(data.data()), data.size());
+    return data;
+}
+
+static uint64_t hash_rom(const std::vector<uint8_t>& data) {
+    return XXH3_64bits(data.data(), data.size());
+}
+
+// ---------------------------------------------------------------------------
 // GFX callbacks
 // ---------------------------------------------------------------------------
 
 ultramodern::gfx_callbacks_t::gfx_data_t create_gfx() {
+    log("[GFX] create_gfx: setting SDL hints");
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0) {
-        fprintf(stderr, "Failed to initialize SDL2: %s\n", SDL_GetError());
+        log("[GFX] SDL_Init failed: %s", SDL_GetError());
+    } else {
+        log("[GFX] SDL_Init OK");
     }
     return {};
 }
@@ -47,6 +115,7 @@ ultramodern::gfx_callbacks_t::gfx_data_t create_gfx() {
 static SDL_Window* window = nullptr;
 
 ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::gfx_data_t) {
+    log("[GFX] create_window: creating SDL window 1280x720");
     uint32_t flags = SDL_WINDOW_RESIZABLE;
 #ifdef RT64_SDL_WINDOW_VULKAN
     flags |= SDL_WINDOW_VULKAN;
@@ -56,7 +125,9 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, flags);
 
     if (window == nullptr) {
-        fprintf(stderr, "Failed to create window: %s\n", SDL_GetError());
+        log("[GFX] SDL_CreateWindow failed: %s", SDL_GetError());
+    } else {
+        log("[GFX] SDL window created OK");
     }
 
     SDL_SysWMinfo wmInfo;
@@ -64,6 +135,7 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
     SDL_GetWindowWMInfo(window, &wmInfo);
 
 #ifdef _WIN32
+    log("[GFX] Window HWND obtained, thread_id=%lu", GetCurrentThreadId());
     return ultramodern::renderer::WindowHandle{ wmInfo.info.win.window, GetCurrentThreadId() };
 #else
     return ultramodern::renderer::WindowHandle{ window };
@@ -74,13 +146,14 @@ void update_gfx(void*) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
+            log("[GFX] SDL_QUIT received — exiting");
             exit(0);
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// Audio callbacks (adapted from engine/src/main/main.cpp)
+// Audio callbacks
 // ---------------------------------------------------------------------------
 
 static SDL_AudioCVT  audio_convert;
@@ -124,7 +197,7 @@ void queue_samples(int16_t* audio_data, size_t sample_count) {
     audio_convert.len = (int)((sample_count + duplicated_input_frames * input_channels) * sizeof(swap_buffer[0]));
 
     if (SDL_ConvertAudio(&audio_convert) < 0) {
-        fprintf(stderr, "SDL audio convert error: %s\n", SDL_GetError());
+        log("[AUDIO] SDL_ConvertAudio error: %s", SDL_GetError());
         return;
     }
 
@@ -162,17 +235,19 @@ size_t get_frames_remaining() {
 static void update_audio_converter() {
     if (SDL_BuildAudioCVT(&audio_convert, AUDIO_F32, input_channels, sample_rate,
                                           AUDIO_F32, output_channels, output_sample_rate) < 0) {
-        fprintf(stderr, "SDL audio converter error: %s\n", SDL_GetError());
+        log("[AUDIO] SDL_BuildAudioCVT error: %s", SDL_GetError());
     }
     discarded_output_frames = duplicated_input_frames * output_sample_rate / sample_rate;
 }
 
 void set_frequency(uint32_t freq) {
+    log("[AUDIO] set_frequency: %u Hz", freq);
     sample_rate = freq;
     update_audio_converter();
 }
 
 static void reset_audio(uint32_t output_freq) {
+    log("[AUDIO] reset_audio: opening device at %u Hz", output_freq);
     SDL_AudioSpec spec{
         .freq     = (int)output_freq,
         .format   = AUDIO_F32,
@@ -187,7 +262,9 @@ static void reset_audio(uint32_t output_freq) {
 
     audio_device = SDL_OpenAudioDevice(nullptr, 0, &spec, nullptr, 0);
     if (audio_device == 0) {
-        fprintf(stderr, "SDL error opening audio device: %s\n", SDL_GetError());
+        log("[AUDIO] SDL_OpenAudioDevice failed: %s", SDL_GetError());
+    } else {
+        log("[AUDIO] Audio device opened OK (id=%u)", audio_device);
     }
     SDL_PauseAudioDevice(audio_device, 0);
 
@@ -200,7 +277,7 @@ static void reset_audio(uint32_t output_freq) {
 // ---------------------------------------------------------------------------
 
 RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
-    fprintf(stderr, "RSP task type %u requested — no microcode available yet\n", task->t.type);
+    log("[RSP] get_rsp_microcode: task type=%u  — no microcode yet", task->t.type);
     return nullptr;
 }
 
@@ -209,14 +286,14 @@ RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
 // ---------------------------------------------------------------------------
 
 recomp::GameEntry aero_fighters_entry = {
-    .rom_hash      = 0x0,
-    .internal_name = "AERO FIGHTERS ASSAUL",
-    .game_id       = u8"afa.n64.us",
-    .mod_game_id   = "afa",
-    .save_type     = recomp::SaveType::Eep4k,
-    .is_enabled    = true,
+    .rom_hash           = 0x0,
+    .internal_name      = "AERO FIGHTERS ASSAUL",
+    .game_id            = u8"afa.n64.us",
+    .mod_game_id        = "afa",
+    .save_type          = recomp::SaveType::Eep4k,
+    .is_enabled         = true,
     .entrypoint_address = get_entrypoint_address(),
-    .entrypoint    = recomp_entrypoint,
+    .entrypoint         = recomp_entrypoint,
 };
 
 // ---------------------------------------------------------------------------
@@ -226,15 +303,86 @@ recomp::GameEntry aero_fighters_entry = {
 int main(int argc, char** argv) {
     (void)argc; (void)argv;
 
+    std::filesystem::path exe_dir = std::filesystem::current_path();
+    std::filesystem::path log_path = exe_dir / "aero_recomp.log";
+
+    log_init(log_path);
+    log("=== Aero Fighters Assault: Recompiled ===");
+    log("[INIT] exe_dir: %s", exe_dir.string().c_str());
+    log("[INIT] log file: %s", log_path.string().c_str());
+
 #ifdef _WIN32
     timeBeginPeriod(1);
     SDL_setenv("SDL_AUDIODRIVER", "wasapi", 1);
+    log("[INIT] Win32: timeBeginPeriod(1), WASAPI audio forced");
 #endif
 
+    std::filesystem::path config_path = exe_dir;
+    log("[INIT] config_path: %s", config_path.string().c_str());
+    recomp::register_config_path(config_path);
+
+    std::filesystem::path rom_stored = config_path / "afa.n64.us.z64";
+    std::filesystem::path rom_source_candidates[] = {
+        exe_dir / "Roms" / "AeroFightersAssault.z64",
+        exe_dir / "roms" / "AeroFightersAssault.z64",
+        exe_dir / ".." / "Roms" / "AeroFightersAssault.z64",
+    };
+
+    if (!std::filesystem::exists(rom_stored)) {
+        log("[ROM] Stored ROM not found at: %s", rom_stored.string().c_str());
+        for (auto& src : rom_source_candidates) {
+            if (std::filesystem::exists(src)) {
+                log("[ROM] Found source ROM at: %s", src.string().c_str());
+                log("[ROM] Copying to config_path...");
+                std::error_code ec;
+                std::filesystem::copy_file(src, rom_stored, std::filesystem::copy_options::overwrite_existing, ec);
+                if (ec) {
+                    log("[ROM] Copy failed: %s", ec.message().c_str());
+                } else {
+                    log("[ROM] Copy OK -> %s", rom_stored.string().c_str());
+                }
+                break;
+            }
+        }
+    } else {
+        log("[ROM] Stored ROM already exists: %s", rom_stored.string().c_str());
+    }
+
+    if (std::filesystem::exists(rom_stored)) {
+        log("[ROM] Computing XXH3_64 hash of ROM...");
+        auto rom_data = read_file_bytes(rom_stored);
+        if (!rom_data.empty()) {
+            uint64_t h = hash_rom(rom_data);
+            log("[ROM] ROM size: %zu bytes  hash: 0x%016llX", rom_data.size(), (unsigned long long)h);
+            aero_fighters_entry.rom_hash = h;
+            log("[ROM] rom_hash set to 0x%016llX", (unsigned long long)h);
+        } else {
+            log("[ROM] ERROR: could not read ROM file!");
+        }
+    } else {
+        log("[ROM] WARNING: no ROM found — game will not boot");
+    }
+
+    log("[INIT] Registering game entry (game_id=afa.n64.us)");
+    recomp::register_game(aero_fighters_entry);
+
+    log("[AUDIO] Initializing SDL audio subsystem");
     SDL_InitSubSystem(SDL_INIT_AUDIO);
     reset_audio(48000);
 
-    recomp::register_game(aero_fighters_entry);
+    log("[BOOT] Spawning auto-start thread...");
+    std::thread auto_start_thread([]() {
+        log("[BOOT] Auto-start thread: waiting 500ms for init to settle");
+        SDL_Delay(500);
+        if (std::filesystem::exists(std::filesystem::current_path() / "afa.n64.us.z64")) {
+            log("[BOOT] Calling recomp::start_game(u8\"afa.n64.us\")");
+            recomp::start_game(u8"afa.n64.us");
+            log("[BOOT] start_game() returned — game is running");
+        } else {
+            log("[BOOT] No ROM available — skipping start_game()");
+        }
+    });
+    auto_start_thread.detach();
 
     recomp::rsp::callbacks_t rsp_callbacks{
         .get_rsp_microcode = get_rsp_microcode,
@@ -247,15 +395,16 @@ int main(int argc, char** argv) {
     };
 
     ultramodern::audio_callbacks_t audio_callbacks{
-        .queue_samples       = queue_samples,
+        .queue_samples        = queue_samples,
         .get_frames_remaining = get_frames_remaining,
-        .set_frequency       = set_frequency,
+        .set_frequency        = set_frequency,
     };
 
     ultramodern::renderer::callbacks_t renderer_callbacks{
         .create_render_context = aero::create_render_context,
     };
 
+    log("[BOOT] Calling recomp::start()...");
     recomp::start(
         recomp::Version{1, 0, 0},
         {},
@@ -269,9 +418,12 @@ int main(int argc, char** argv) {
         {}
     );
 
+    log("[BOOT] recomp::start() returned — shutting down");
+
 #ifdef _WIN32
     timeEndPeriod(1);
 #endif
 
+    if (g_log_file) fclose(g_log_file);
     return 0;
 }
