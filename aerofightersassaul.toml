@@ -1,5 +1,5 @@
 [input]
-entrypoint = 0x8023169C
+entrypoint = 0x80200050
 elf_path = "build/aerofightersassaul.elf"
 rom_file_path = "Roms/AeroFightersAssault.z64"
 output_func_path = "recomp"
