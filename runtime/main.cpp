@@ -43,18 +43,21 @@ void aero_register_overlays();
 // Logging
 // ---------------------------------------------------------------------------
 
-static FILE* g_log_file = nullptr;
+static FILE* g_console = nullptr;
 
 static void log_init(const std::filesystem::path& log_path) {
 #ifdef _WIN32
     AllocConsole();
-    freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-    freopen_s((FILE**)stderr, "CONOUT$", "w", stderr);
+    fopen_s(&g_console, "CONOUT$", "w");
     SetConsoleTitleA("Aero Fighters Assault: Recompiled — Debug");
+    freopen_s((FILE**)stdout, log_path.string().c_str(), "w", stdout);
+    freopen_s((FILE**)stderr, log_path.string().c_str(), "w", stderr);
+#else
+    g_console = stdout;
+    freopen(log_path.string().c_str(), "w", stdout);
 #endif
-    g_log_file = fopen(log_path.string().c_str(), "w");
     setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
+    if (g_console) setvbuf(g_console, nullptr, _IONBF, 0);
 }
 
 static void log(const char* fmt, ...) {
@@ -71,11 +74,10 @@ static void log(const char* fmt, ...) {
 #else
     localtime_r(&now, &t);
 #endif
-    fprintf(stdout, "[%02d:%02d:%02d] %s\n", t.tm_hour, t.tm_min, t.tm_sec, buf);
-    if (g_log_file) {
-        fprintf(g_log_file, "[%02d:%02d:%02d] %s\n", t.tm_hour, t.tm_min, t.tm_sec, buf);
-        fflush(g_log_file);
-    }
+    char line[2176];
+    snprintf(line, sizeof(line), "[%02d:%02d:%02d] %s\n", t.tm_hour, t.tm_min, t.tm_sec, buf);
+    if (g_console) { fputs(line, g_console); fflush(g_console); }
+    fputs(line, stdout); fflush(stdout);
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +447,7 @@ int main(int argc, char** argv) {
     timeEndPeriod(1);
 #endif
 
-    if (g_log_file) fclose(g_log_file);
+    fflush(stdout);
+    if (g_console) fclose(g_console);
     return 0;
 }
