@@ -1,0 +1,48 @@
+[input]
+entrypoint = 0x8023169C
+elf_path = "build/aerofightersassaul.elf"
+rom_file_path = "Roms/AeroFightersAssault.z64"
+output_func_path = "recomp"
+
+[functions]
+"main" = { name = "func_80231150" }
+
+[patches]
+stubs = []
+ignored = [
+    "func_80241F54",
+    "func_8023CE80",
+    "func_80248160",
+    "func_8024AFFC",
+    "func_80242240",
+    "func_8023F020",
+    "func_8023D7F0",
+    "func_802480E0",
+    "func_802417E0",
+    "func_8024B090",
+    "func_8024B024",
+    "func_8024AF94",
+    "func_80231630",
+    "func_80241D14",
+    "func_8024AF40",
+    "func_8024AF48",
+    "func_80234DE0",
+    "func_8024B038",
+    "func_8024AE70",
+    "func_8024AE78",
+    "func_8024A740",
+    "func_80238B80"
+]
+
+
+
+
+
+
+
+
+
+
+
+
+

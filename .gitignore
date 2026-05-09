@@ -1,0 +1,7 @@
+build_native/
+build/
+Roms/
+recomp_log.txt
+*.user
+*.suo
+.vs/
