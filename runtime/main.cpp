@@ -276,9 +276,25 @@ static void reset_audio(uint32_t output_freq) {
 // RSP callbacks
 // ---------------------------------------------------------------------------
 
+static RspExitReason rsp_stub_audio(uint8_t* rdram, uint32_t ucode_addr) {
+    (void)rdram; (void)ucode_addr;
+    return RspExitReason::Broke;
+}
+
+static RspExitReason rsp_stub_unknown(uint8_t* rdram, uint32_t ucode_addr) {
+    (void)rdram; (void)ucode_addr;
+    return RspExitReason::Broke;
+}
+
 RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
-    log("[RSP] get_rsp_microcode: task type=%u  — no microcode yet", task->t.type);
-    return nullptr;
+    switch (task->t.type) {
+        case M_AUDTASK:
+            log("[RSP] Audio task (type=%u) — stub (silence)", task->t.type);
+            return rsp_stub_audio;
+        default:
+            log("[RSP] Unknown task type=%u ucode=0x%08X — stub", task->t.type, task->t.ucode);
+            return rsp_stub_unknown;
+    }
 }
 
 // ---------------------------------------------------------------------------
