@@ -7,14 +7,21 @@
 
 #include "ultramodern/ultra64.h"
 #include "ultramodern/ultramodern.hpp"
+#include "ultramodern/renderer_context.hpp"
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
+
+namespace aero {
+    std::unique_ptr<ultramodern::renderer::RendererContext>
+    create_render_context(uint8_t* rdram, ultramodern::renderer::WindowHandle window_handle, bool developer_mode);
+}
 
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <timeapi.h>
 #include "SDL_syswm.h"
@@ -93,7 +100,7 @@ void queue_samples(int16_t* audio_data, size_t sample_count) {
     static std::array<float, duplicated_input_frames * input_channels> duplicated_sample_buffer{};
 
     size_t resampled_sample_count = sample_count + duplicated_input_frames * input_channels;
-    size_t max_sample_count = std::max(resampled_sample_count, resampled_sample_count * (size_t)audio_convert.len_mult);
+    size_t max_sample_count = (std::max)(resampled_sample_count, resampled_sample_count * (size_t)audio_convert.len_mult);
     if (max_sample_count > swap_buffer.size()) {
         swap_buffer.resize(max_sample_count);
     }
@@ -245,11 +252,15 @@ int main(int argc, char** argv) {
         .set_frequency       = set_frequency,
     };
 
+    ultramodern::renderer::callbacks_t renderer_callbacks{
+        .create_render_context = aero::create_render_context,
+    };
+
     recomp::start(
         recomp::Version{1, 0, 0},
         {},
         rsp_callbacks,
-        {},
+        renderer_callbacks,
         audio_callbacks,
         {},
         gfx_callbacks,

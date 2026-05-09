@@ -55,7 +55,7 @@ target_include_directories(RecompiledFuncs PRIVATE
     ${ENGINE_DIR}/lib/N64ModernRuntime/N64Recomp/include
 )
 
-file(GLOB RECOMP_SOURCES ${RECOMP_DIR}/*.c)
+file(GLOB RECOMP_SOURCES ${RECOMP_DIR}/*.c ${RECOMP_DIR}/*.cpp)
 target_sources(RecompiledFuncs PRIVATE ${RECOMP_SOURCES})
 
 # Patches Library
@@ -78,7 +78,7 @@ target_sources(PatchesLib PRIVATE ${RUNTIME_DIR}/dummy_patches.c)
 # Main Executable
 add_executable(Aero64Recompiled
     ${RUNTIME_DIR}/main.cpp
-    # Add other runtime/game sources as we create them
+    ${RUNTIME_DIR}/aero_render.cpp
 )
 
 target_include_directories(Aero64Recompiled PRIVATE
@@ -90,6 +90,8 @@ target_include_directories(Aero64Recompiled PRIVATE
     ${ENGINE_DIR}/lib/GamepadMotionHelpers
     ${ENGINE_DIR}/lib/RmlUi/Include
     ${ENGINE_DIR}/lib/rt64/src
+    ${ENGINE_DIR}/lib/rt64/src/contrib/hlslpp/include
+    ${ENGINE_DIR}/lib/rt64/src/contrib
     ${RECOMP_DIR}
 )
 
