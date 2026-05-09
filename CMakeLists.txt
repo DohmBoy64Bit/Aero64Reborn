@@ -80,6 +80,7 @@ add_executable(Aero64Recompiled
     ${RUNTIME_DIR}/main.cpp
     ${RUNTIME_DIR}/aero_render.cpp
     ${RUNTIME_DIR}/register_overlays.cpp
+    ${RUNTIME_DIR}/cop0_overrides.cpp
 )
 
 target_include_directories(Aero64Recompiled PRIVATE
@@ -113,6 +114,10 @@ if (WIN32)
             "${ENGINE_DIR}/lib/rt64/src/contrib/dxc/bin/x64/dxil.dll"
             "${ENGINE_DIR}/lib/rt64/src/contrib/dxc/bin/x64/dxcompiler.dll"
             $<TARGET_FILE_DIR:Aero64Recompiled>)
+endif()
+
+if(MSVC)
+    target_link_options(Aero64Recompiled PRIVATE /FORCE:MULTIPLE)
 endif()
 
 target_link_libraries(Aero64Recompiled PRIVATE
