@@ -73,7 +73,10 @@ target_include_directories(PatchesLib PRIVATE
     ${ENGINE_DIR}/lib/N64ModernRuntime/N64Recomp/include
 )
 
-target_sources(PatchesLib PRIVATE ${RUNTIME_DIR}/dummy_patches.c)
+target_sources(PatchesLib PRIVATE
+    ${RUNTIME_DIR}/dummy_patches.c
+    ${RUNTIME_DIR}/os_patches.cpp
+)
 
 # Main Executable
 add_executable(Aero64Recompiled
