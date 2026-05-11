@@ -1,5 +1,9 @@
 #include "../recomp/recomp_overlays.inl"
 #include "librecomp/overlays.hpp"
+#include "recomp.h"
+
+extern "C" recomp_func_t func_80231630;
+extern "C" recomp_func_t func_802C9B90;
 
 void aero_register_overlays() {
     recomp::overlays::overlay_section_table_data_t sections{
@@ -14,4 +18,7 @@ void aero_register_overlays() {
     };
 
     recomp::overlays::register_overlays(sections, overlays);
+
+    recomp::overlays::add_loaded_function(0x80231630, func_80231630);
+    recomp::overlays::add_loaded_function(0x802C9B90, func_802C9B90);
 }

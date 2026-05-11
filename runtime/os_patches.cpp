@@ -5,6 +5,11 @@
 extern "C" void osCreateThread(RDRAM_ARG PTR(OSThread) t_, OSId id, PTR(thread_func_t) entrypoint, PTR(void) arg, PTR(void) sp, OSPri pri);
 extern "C" void osStartThread(RDRAM_ARG PTR(OSThread) t_);
 
+extern "C" void func_8022B780(uint8_t* rdram, recomp_context* ctx);
+extern "C" void func_8022B460(uint8_t* rdram, recomp_context* ctx);
+extern "C" void func_80231CC4(uint8_t* rdram, recomp_context* ctx);
+extern "C" void func_802C9B90(uint8_t* rdram, recomp_context* ctx);
+
 extern "C" RECOMP_FUNC void func_80237210(uint8_t* rdram, recomp_context* ctx) {
     int32_t t_      = (int32_t)ctx->r4;
     int32_t id      = (int32_t)ctx->r5;
@@ -23,4 +28,40 @@ extern "C" RECOMP_FUNC void func_80237360(uint8_t* rdram, recomp_context* ctx) {
     fprintf(stderr, "[OS] osStartThread t=%08X\n", (uint32_t)t_);
     fflush(stderr);
     osStartThread(rdram, t_);
+}
+
+extern "C" RECOMP_FUNC void func_80231630(uint8_t* rdram, recomp_context* ctx) {
+    fprintf(stderr, "[PATCH] func_80231630: main game thread entry\n");
+    fflush(stderr);
+
+    ctx->r29 = ADD32(ctx->r29, -0x18);
+    MEM_W(0x18, ctx->r29) = ctx->r4;
+    MEM_W(0x14, ctx->r29) = ctx->r31;
+
+    ctx->r4 = S32(0x803233C0);
+    ctx->r5 = 0;
+    ctx->r6 = ADD32(0, 0x116F0);
+    fprintf(stderr, "[PATCH] func_80231630: calling func_8022B780 (bzero BSS)\n");
+    fflush(stderr);
+    func_8022B780(rdram, ctx);
+
+    ctx->r4 = S32(0x80287430);
+    ctx->r5 = ADD32(0, 0x57D20);
+    ctx->r6 = ADD32(0, 0xC0F70);
+    fprintf(stderr, "[PATCH] func_80231630: calling func_8022B460 (ROM DMA)\n");
+    fflush(stderr);
+    func_8022B460(rdram, ctx);
+
+    MEM_B(0x0C0A, S32(0x80280000)) = 0;
+    fprintf(stderr, "[PATCH] func_80231630: calling func_80231CC4 (game state init)\n");
+    fflush(stderr);
+    func_80231CC4(rdram, ctx);
+
+    ctx->r4 = MEM_W(0x18, ctx->r29);
+    fprintf(stderr, "[PATCH] func_80231630: calling func_802C9B90 (main game loop)\n");
+    fflush(stderr);
+    func_802C9B90(rdram, ctx);
+
+    ctx->r31 = MEM_W(0x14, ctx->r29);
+    ctx->r29 = ADD32(ctx->r29, 0x18);
 }
