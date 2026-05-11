@@ -31,9 +31,19 @@ extern "C" RECOMP_FUNC void func_80237360(uint8_t* rdram, recomp_context* ctx) {
 }
 
 extern "C" RECOMP_FUNC void func_80231584(uint8_t* rdram, recomp_context* ctx) {
-    fprintf(stderr, "[PATCH] func_80231584: idle thread - blocking via pause_self\n");
+    fprintf(stderr, "[PATCH] func_80231584: idle thread - creating mesg queue\n");
     fflush(stderr);
-    pause_self(rdram);
+
+    const int32_t q_addr   = (int32_t)0x80280C70;
+    const int32_t buf_addr = (int32_t)0x80280C88;
+    osCreateMesgQueue(rdram, q_addr, buf_addr, 1);
+
+    fprintf(stderr, "[PATCH] func_80231584: idle thread - blocking on osRecvMesg (yields to boot thread)\n");
+    fflush(stderr);
+
+    while (true) {
+        osRecvMesg(rdram, q_addr, NULLPTR, OS_MESG_BLOCK);
+    }
 }
 
 extern "C" RECOMP_FUNC void func_80231630(uint8_t* rdram, recomp_context* ctx) {
