@@ -4391,6 +4391,8 @@ L_8022CAFC:
     ctx->r29 = ADD32(ctx->r29, 0X40);
 ;}
 RECOMP_FUNC void func_80248010(uint8_t* rdram, recomp_context* ctx) {
+    OutputDebugStringA("[DEBUG] func_80248010 entered\n");
+        fprintf(stderr, "[DEBUG] func_80248010 entered\n"); fflush(stderr);
     uint64_t hi = 0, lo = 0, result = 0;
     int c1cs = 0;
     // 0x80248010: mtc0        $a0, Status

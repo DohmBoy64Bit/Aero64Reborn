@@ -8203,6 +8203,10 @@ L_8023A79C:
     MEM_W(0X0, ctx->r4) = ctx->r2;
 ;}
 RECOMP_FUNC void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx) {
+    char dbg[256];
+        snprintf(dbg, sizeof(dbg), "[DEBUG] recomp_entrypoint entered ctx=%p\n", (void*)ctx);
+        OutputDebugStringA(dbg);
+        fprintf(stderr, "%s", dbg); fflush(stderr);
     uint64_t hi = 0, lo = 0, result = 0;
     int c1cs = 0;
     // 0x8023169C: lui         $t0, 0x8025

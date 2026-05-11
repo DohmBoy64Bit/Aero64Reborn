@@ -1,6 +1,14 @@
 #include "recomp.h"
+#include <cstdio>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 extern "C" void cop0_status_write(recomp_context* ctx, gpr value) {
+    char dbg[256];
+        snprintf(dbg, sizeof(dbg), "[DEBUG] cop0_status_write value=0x%08X\n", (uint32_t)value);
+        OutputDebugStringA(dbg);
+        fprintf(stderr, "%s", dbg); fflush(stderr);
     uint32_t old_sr = ctx->status_reg;
     uint32_t new_sr = (uint32_t)value;
     uint32_t changed = old_sr ^ new_sr;

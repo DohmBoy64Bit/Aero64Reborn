@@ -4711,6 +4711,8 @@ RECOMP_FUNC void func_8021E18C(uint8_t* rdram, recomp_context* ctx) {
     MEM_B(0X1, ctx->r25) = 0;
 ;}
 RECOMP_FUNC void func_80248020(uint8_t* rdram, recomp_context* ctx) {
+    OutputDebugStringA("[DEBUG] func_80248020 entered\n");
+        fprintf(stderr, "[DEBUG] func_80248020 entered\n"); fflush(stderr);
     uint64_t hi = 0, lo = 0, result = 0;
     int c1cs = 0;
     // 0x80248020: mfc0        $v0, Status

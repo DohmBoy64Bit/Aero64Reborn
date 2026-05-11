@@ -6530,6 +6530,10 @@ L_80233E90:
 
 ;}
 RECOMP_FUNC void func_8023E3A0(uint8_t* rdram, recomp_context* ctx) {
+    char dbg[256];
+        snprintf(dbg, sizeof(dbg), "[DEBUG] func_8023E3A0 entered ctx=%p\n", (void*)ctx);
+        OutputDebugStringA(dbg);
+        fprintf(stderr, "%s", dbg); fflush(stderr);
     uint64_t hi = 0, lo = 0, result = 0;
     int c1cs = 0;
     // 0x8023E3A0: addiu       $sp, $sp, -0x40

@@ -32,6 +32,7 @@ namespace aero {
 #define NOMINMAX
 #include <Windows.h>
 #include <timeapi.h>
+#include <io.h>
 #include "SDL_syswm.h"
 #endif
 
@@ -50,13 +51,16 @@ static void log_init(const std::filesystem::path& log_path) {
     AllocConsole();
     fopen_s(&g_console, "CONOUT$", "w");
     SetConsoleTitleA("Aero Fighters Assault: Recompiled — Debug");
-    freopen_s((FILE**)stdout, log_path.string().c_str(), "w", stdout);
-    freopen_s((FILE**)stderr, log_path.string().c_str(), "w", stderr);
+    FILE* logfile = nullptr;
+    freopen_s(&logfile, log_path.string().c_str(), "w", stdout);
+    _dup2(_fileno(stdout), 2);
 #else
     g_console = stdout;
     freopen(log_path.string().c_str(), "w", stdout);
+    dup2(fileno(stdout), fileno(stderr));
 #endif
     setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
     if (g_console) setvbuf(g_console, nullptr, _IONBF, 0);
 }
 
@@ -428,6 +432,10 @@ int main(int argc, char** argv) {
     log("[BOOT] Overlays registered OK");
 
     log("[BOOT] Calling recomp::start()...");
+    OutputDebugStringA("\n=== MAIN: about to call recomp::start() ===\n");
+    fprintf(stderr, "\n[MAIN] about to call recomp::start()\n"); fflush(stderr);
+    fflush(stdout);
+
     recomp::start(
         recomp::Version{1, 0, 0},
         {},
@@ -441,7 +449,8 @@ int main(int argc, char** argv) {
         {}
     );
 
-    log("[BOOT] recomp::start() returned — shutting down");
+    fprintf(stderr, "[MAIN] recomp::start() returned!\n"); fflush(stderr);
+    log("[BOOT] recomp::start() has returned — this is the main loop now");
 
 #ifdef _WIN32
     timeEndPeriod(1);
