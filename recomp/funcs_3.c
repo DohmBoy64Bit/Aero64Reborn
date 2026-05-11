@@ -7709,6 +7709,7 @@ RECOMP_FUNC void func_8023DEC0(uint8_t* rdram, recomp_context* ctx) {
 
 ;}
 RECOMP_FUNC void func_80234F20(uint8_t* rdram, recomp_context* ctx) {
+    if (ctx->r4 == 0) { return; }
     uint64_t hi = 0, lo = 0, result = 0;
     int c1cs = 0;
     // 0x80234F20: sll         $t6, $a1, 16

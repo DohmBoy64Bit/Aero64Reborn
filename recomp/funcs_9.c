@@ -8441,6 +8441,9 @@ L_8020330C:
     ctx->r10 = MEM_BU(ctx->r8, 0XAD);
     // 0x8020331C: lw          $a0, 0x0($s2)
     ctx->r4 = MEM_W(ctx->r18, 0X0);
+    if (ctx->r4 == 0) {
+        goto after_5;
+    }
     // 0x80203320: sll         $t3, $t2, 1
     ctx->r11 = S32(ctx->r10 << 1);
     // 0x80203324: addu        $t4, $t9, $t3
