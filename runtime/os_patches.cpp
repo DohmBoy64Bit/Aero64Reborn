@@ -30,6 +30,12 @@ extern "C" RECOMP_FUNC void func_80237360(uint8_t* rdram, recomp_context* ctx) {
     osStartThread(rdram, t_);
 }
 
+extern "C" RECOMP_FUNC void func_80231584(uint8_t* rdram, recomp_context* ctx) {
+    fprintf(stderr, "[PATCH] func_80231584: idle thread - blocking via pause_self\n");
+    fflush(stderr);
+    pause_self(rdram);
+}
+
 extern "C" RECOMP_FUNC void func_80231630(uint8_t* rdram, recomp_context* ctx) {
     fprintf(stderr, "[PATCH] func_80231630: main game thread entry\n");
     fflush(stderr);
